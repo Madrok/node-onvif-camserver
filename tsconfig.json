@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "outDir": "./lib",
+        "allowJs": true,
+        "target": "es2018", // see https://node.green/
+        "moduleResolution": "Node",
+        "module": "commonjs"
+    },
+    "include": [
+        "./src/**/*"
+    ]
+}
