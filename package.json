@@ -5,17 +5,22 @@
   "main": "main.js",
   "scripts": {
     "run": "sudo `which node` lib/main.js",
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Russell Weir",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^10.0.0",
     "node-arp": "^1.0.6",
     "node-onvif": "^0.1.7",
+    "to-boolean": "^1.0.0",
     "websocket": "^1.0.30",
     "winston": "^3.2.1"
   },
   "devDependencies": {
-    "@types/node": "^12.7.11"
+    "@types/dotenv": "^8.2.0",
+    "@types/node": "^12.7.11",
+    "typescript": "^4.3.5"
   }
 }
