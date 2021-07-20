@@ -10,7 +10,6 @@ import * as net from "net";
 import { onvifDiscover } from "./OnvifDiscover";
 import { NetworkOnvifDevice } from "./NetworkOnvifDevice";
 import { OnvifServicePtz } from "../node_modules/node-onvif/lib/modules/service-ptz";
-import config from './config';
 import * as dotenv from "dotenv";
 import { getGid, getRunPid, getUid } from "./posixUtil";
 dotenv.config();
@@ -84,11 +83,11 @@ if (process.env.NODE_ENV !== 'production') {
 		let rv = destroyUnixSocket();
 		if (typeof v == 'undefined' || v == null) v = 0;
 
-		let fPid = getRunPid(process.env.OCS_PID_FILE);
+		let fPid = getRunPid(process.env.NOCS_PID_FILE);
 		if (!isNaN(fPid)) {
 			if (fPid === process.pid) {
-				logger.info(`Removing pid file ${process.env.OCS_PID_FILE}`);
-				fs.unlinkSync(process.env.OCS_PID_FILE);
+				logger.info(`Removing pid file ${process.env.NOCS_PID_FILE}`);
+				fs.unlinkSync(process.env.NOCS_PID_FILE);
 			}
 		}
 		logger.warn(`shutdown complete`);
@@ -121,20 +120,20 @@ if (process.env.NODE_ENV !== 'production') {
 		shutdown(1);
 	}
 
-	let procUid = await getUid(process.env.OCS_USER);
-	let procGid = await getGid(process.env.OCS_GROUP);
+	let procUid = await getUid(process.env.NOCS_USER);
+	let procGid = await getGid(process.env.NOCS_GROUP);
 
 	if (isNaN(procUid)) {
-		logger.error(`Unable to determine user id for ${process.env.OCS_USER}`);
+		logger.error(`Unable to determine user id for ${process.env.NOCS_USER}`);
 		shutdown(1);
 	}
 
 	if (isNaN(procGid)) {
-		logger.error(`Unable to determine group id for ${process.env.OCS_GROUP}`);
+		logger.error(`Unable to determine group id for ${process.env.NOCS_GROUP}`);
 		shutdown(1);
 	}
 
-	let pidDir = path.dirname(process.env.OCS_PID_FILE);
+	let pidDir = path.dirname(process.env.NOCS_PID_FILE);
 	try {
 		if (!fs.existsSync(pidDir)) {
 			logger.warn(`Creating PID directory ${pidDir}`);
@@ -148,20 +147,20 @@ if (process.env.NODE_ENV !== 'production') {
 
 	// switch to unpriveledged user
 	try {
-		process.setegid(process.env.OCS_GROUP);
-		process.setuid(process.env.OCS_USER);
+		process.setegid(process.env.NOCS_GROUP);
+		process.setuid(process.env.NOCS_USER);
 	} catch (e) {
-		logger.error(`Unable to change to unpriviledged user and group ${process.env.OCS_USER}:${process.env.OCS_GROUP}`);
+		logger.error(`Unable to change to unpriviledged user and group ${process.env.NOCS_USER}:${process.env.NOCS_GROUP}`);
 		shutdown(1);
 	}
 
 	// write pid file
 	try {
 		let v = String(process.pid);
-		fs.writeFileSync(process.env.OCS_PID_FILE, v + "\n");
+		fs.writeFileSync(process.env.NOCS_PID_FILE, v + "\n");
 	} catch (e) {
-		logger.error("Unable to write pid file " + process.env.OCS_PID_FILE);
-		logger.error(`Make sure the directory exists and is owned by ${process.env.OCS_USER}:${process.env.OCS_GROUP}`);
+		logger.error("Unable to write pid file " + process.env.NOCS_PID_FILE);
+		logger.error(`Make sure the directory exists and is owned by ${process.env.NOCS_USER}:${process.env.NOCS_GROUP}`);
 		shutdown(1);
 	}
 
@@ -175,7 +174,7 @@ function listen() {
 	listening = true;
 	// Unix domain socket server
 	if (!destroyUnixSocket()) {
-		logger.error("Unable to delete " + config.socket + ". Unable to start");
+		logger.error("Unable to delete " + process.env.NOCS_SOCKET + ". Unable to start");
 		process.exit(PROCESS_ERR_UNIX_SOCKET_FILE);
 	}
 	let uds_server = net.createServer(onUnixSocketConnect)
@@ -190,18 +189,18 @@ function listen() {
 			}
 		*/
 		});
-	uds_server.listen(config.socket, () => {
+	uds_server.listen( process.env.NOCS_SOCKET, () => {
 		logger.info('Unix socket server listening on ' + uds_server.address());
 	});
-	// fs.chmod(config.socket,0o777, (err)=> {
+	// fs.chmod(process.env.NOCS_SOCKET,0o777, (err)=> {
 	// 	if(err) throw err;
 	// });
 
-	if (config.httpEnabled) {
+	if (process.env.NOCS_HTTP_ENABLED) {
 		// http server
 		var http_server = http.createServer(httpServerRequest);
-		http_server.listen(config.httpPort, function () {
-			logger.info("HTTP server listening on port " + config.httpPort);
+		http_server.listen(process.env.NOCS_HTTP_PORT, function () {
+			logger.info("HTTP server listening on port " + process.env.NOCS_HTTP_PORT);
 		});
 
 		// websocket server
@@ -214,8 +213,8 @@ function listen() {
 
 function destroyUnixSocket() {
 	try {
-		if (fs.existsSync(config.socket)) {
-			fs.unlinkSync(config.socket);
+		if (fs.existsSync(process.env.NOCS_SOCKET)) {
+			fs.unlinkSync(process.env.NOCS_SOCKET);
 		}
 		return true;
 	} catch (err) {
@@ -225,8 +224,8 @@ function destroyUnixSocket() {
 
 function removePidFile() {
 	try {
-		if (fs.existsSync(config.pidFile)) {
-			fs.unlinkSync(config.pidFile);
+		if (fs.existsSync(process.env.NOCS_PID_FILE)) {
+			fs.unlinkSync(process.env.NOCS_PID_FILE);
 		}
 		return true;
 	} catch (err) {
@@ -425,11 +424,11 @@ function discovery() {
 			if (!listening) {
 				listen();
 			}
-			discoveryTimer = setTimeout(discovery, config.discoveryTime);
+			discoveryTimer = setTimeout(discovery, Number(process.env.NOCS_DISCOVERY_TIME) * 1000);
 		},
 		(err) => {
 			logger.error("onvifDiscover error: " + err.message);
-			discoveryTimer = setTimeout(discovery, config.discoveryTime);
+			discoveryTimer = setTimeout(discovery, Number(process.env.NOCS_DISCOVERY_TIME) * 1000);
 		}
 	)
 		.catch((e) => {
