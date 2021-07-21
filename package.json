@@ -6,7 +6,8 @@
   "scripts": {
     "run": "sudo `which node` lib/main.js",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install-zm": "sudo cp ./zoneminder/NodeOnvifCamServer.pm /usr/share/perl5/ZoneMinder/Control/ && service zoneminder restart"
   },
   "author": "Russell Weir",
   "license": "MIT",

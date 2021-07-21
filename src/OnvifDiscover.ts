@@ -1,6 +1,8 @@
 import * as onvif from 'node-onvif';
 import * as arp from 'node-arp';
 import { NetworkOnvifDevice } from './NetworkOnvifDevice';
+import { logger } from './main';
+import * as toBool from 'to-boolean';
 
 /**
  * Find all network cameras. Will return a Promise if callback is null.
@@ -12,7 +14,8 @@ export function onvifDiscover(cb?:{(err:Error,results: Array<NetworkOnvifDevice>
     let f = (cb) => {
         onvif.startProbe().then((device_info_list) => {
             onvif.stopProbe((error)=> {
-                console.log(device_info_list);
+                if(toBool(process.env.NOCS_DEBUG_DEVICE_LIST || false))
+                    console.log(device_info_list);
                 device_info_list.forEach((info) => {   
                     let odevice = new onvif.OnvifDevice({
                         xaddr: info.xaddrs[0]
@@ -39,6 +42,7 @@ export function onvifDiscover(cb?:{(err:Error,results: Array<NetworkOnvifDevice>
                                 lastPing: 0,
                             };
                             rv.push(d);
+                            logger.debug(`OnvifDiscover found camera: ${d.hardware} at ${d.address}`);
                             resolve();
                         });
                     }));

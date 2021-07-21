@@ -3,7 +3,8 @@ import * as WebSocket from 'websocket';
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as net from "net";
+import * as net from 'net';
+import * as toBool from 'to-boolean';
 
 
 // import * as ping from 'ping';
@@ -48,10 +49,9 @@ var devices: DeviceMap = {};
 var discoveryTimer = null;
 var listening = false;
 
-const logger = winston.createLogger({
+export const logger = winston.createLogger({
 	level: 'debug',
 	format: winston.format.json(),
-	defaultMeta: { service: 'user-service' },
 	transports: [
 		//
 		// - Write to all logs with level `info` and below to `combined.log` 
@@ -192,11 +192,11 @@ function listen() {
 	uds_server.listen( process.env.NOCS_SOCKET, () => {
 		logger.info('Unix socket server listening on ' + uds_server.address());
 	});
-	// fs.chmod(process.env.NOCS_SOCKET,0o777, (err)=> {
-	// 	if(err) throw err;
-	// });
+	fs.chmod(process.env.NOCS_SOCKET,0o777, (err)=> {
+		if(err) throw err;
+	});
 
-	if (process.env.NOCS_HTTP_ENABLED) {
+	if (toBool(process.env.NOCS_HTTP_ENABLED || false)) {
 		// http server
 		var http_server = http.createServer(httpServerRequest);
 		http_server.listen(process.env.NOCS_HTTP_PORT, function () {
@@ -234,6 +234,7 @@ function removePidFile() {
 }
 
 function handleMessage(connection: AbsSocket, message: Message) {
+	// console.log(JSON.stringify(message));
 	var method = message['method'];
 	var params = message['params'];
 	try {
@@ -266,9 +267,11 @@ function handleMessage(connection: AbsSocket, message: Message) {
 				setPreset(connection, message);
 				break;
 			case 'gotoHome':
+			case 'ptzHome':
 				gotoHome(connection, message);
 				break;
 			case 'setHome':
+			case 'setHomePosition':
 				setHome(connection, message);
 				break;
 			case 'reboot':
@@ -276,6 +279,7 @@ function handleMessage(connection: AbsSocket, message: Message) {
 				break;
 			default:
 				logger.warn('unhandled method "' + method + '"');
+				sendError(connection, message, `unknown command ${method}`);
 		}
 	} catch (err) {
 		sendError(connection, message, 'Internal server error');
@@ -308,9 +312,11 @@ function onUnixSocketConnect(sock: any) {
 			logger.error("Domain socket: unparsable message received");
 			return;
 		}
-		if (data)
-			//handleMessage(sock, {method: "listDevices", params: null});
+		if (data) {
 			handleMessage(sock, data);
+		} else {
+			logger.warn(`no data in message from socket`);
+		}
 	});
 }
 
@@ -405,8 +411,7 @@ function discovery() {
 				if (!devices[device.address]) {
 					//device.lastPing = Date.now();
 					//devices[device.address] = device;
-					logger.info("New camera " + device.name + " found at " + device.address);
-					//console.log(JSON.stringify(device));
+					logger.info(`New camera found: ${device.hardware} at ${device.address}`);
 					replace(device);
 				} else {
 					let d: NetworkOnvifDevice = devices[device.address];
@@ -487,6 +492,7 @@ function listDevices(conn: AbsSocket, msg: Message) {
  * @param msg.params.pass Password
  */
 function connect(conn: AbsSocket, msg: Message): void {
+	console.log(msg);
 	var params = msg.params;
 	var device = devices[params.address];
 	if (!device) {
@@ -561,6 +567,7 @@ function ptzMove(conn: AbsSocket, msg: Message) {
 	var device = devices[params.address];
 	if (!device) {
 		sendError(conn, msg, 'The specified device is not found: ' + params.address);
+		logger.warn(`attempted move on non-existant device ${params.address}`);
 		return;
 	}
 	var ptz = checkCanPtz(conn, msg);
@@ -568,6 +575,7 @@ function ptzMove(conn: AbsSocket, msg: Message) {
 
 	device.instance.ptzMove(params, (error) => {
 		var res = { 'id': 'ptzMove', 'seq': msg.seq };
+		console.log(res);
 		if (error) {
 			res['error'] = error.toString();
 		} else {
